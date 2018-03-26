@@ -4,7 +4,7 @@ interrupt_callback_lookup_table:
 	#by default, all callback function pointers are NULL
 	.skip 128, 0
 
-multiply_de_Bruijn_bit_position:
+de_Bruijn_lookup_table:
 	.word 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8, 31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
 	
 .text
@@ -93,7 +93,7 @@ de_Bruijn_index_lookup:
 	mul r16, r16, r4
 	srli r16, r16, 27
 	
-	movia r4, multiply_de_Bruijn_bit_position
+	movia r4, de_Bruijn_lookup_table
 	slli r16, r16, 2
 	add r4, r4, r16
 	ldw r2, 0(r4)
