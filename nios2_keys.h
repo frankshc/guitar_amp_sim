@@ -1,5 +1,13 @@
 #ifndef NIOS2_KEYS_H
 #define NIOS2_KEYS_H
+/*! 
+ *  \brief     	This is an Altera DE1-SoC NIOS2 core keys/pushbutton interface
+ *  \author    	Frank Chen
+ *  \version   	0.1
+ *  \date      	2018-03-28
+ *  \pre       	Set linker section presets to "Exceptions" in the Monitor Program. 
+ *				
+ */
 
 /*! \brief 	Resets the keys.
  * 				
@@ -12,7 +20,7 @@ void reset_keys(void);
  * 				 
  *	\note 
  *	Each key has at most one callback; registering a new callback on the same
- *	key overwrites the previous callback.
+ *	key overwrites the previous callback silently.
  *
  *	\warning
  *	key number must be an integer in [0...3].
