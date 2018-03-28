@@ -1,27 +1,29 @@
-#ifndef KEYS_H
-#define KEYS_H
+#ifndef NIOS2_KEYS_H
+#define NIOS2_KEYS_H
 
-/*! \brief 	Initializes the keys.
+/*! \brief 	Resets the keys.
  * 				
  *	Calling this function disables interrupts on all keys and clears
  *	the Edge Capture Register. 
  */
-void initialize_keys(void);
+void reset_keys(void);
 
 /*! \brief 	Registers a callback for a key.
- * 				
- *	The callback function pointer must have return type void and no parameters. 
- *	Each key may only have one callback; registering a new callback on the same
- *	key overwrites the previous callback. Undefined behavior for key numbers not
- *	between 0 and 3.
+ * 				 
+ *	\note 
+ *	Each key has at most one callback; registering a new callback on the same
+ *	key overwrites the previous callback.
+ *
+ *	\warning
+ *	key number must be an integer in [0...3].
  */
-void register_key_press_callback(int key, void (*callback)());
+void register_key_callback(int key, void (*callback)(void));
 
-/*! \brief 	Unregisters an existing callback associated with a key.
- * 				
- *	If a key does not have an existing callback, unregistering callback 
- *	does nothing.
+/*! \brief 	Unregisters an existing callback associated with a key, if it exists.
+ *
+ *	\warning
+ *	key number must be an integer in [0...3].
  */
-void unregister_key_press_callback(int key);
+void unregister_key_callback(int key);
 
-#endif /*KEYS_H*/
+#endif /*NIOS2_KEYS_H*/
