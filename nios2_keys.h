@@ -6,6 +6,9 @@
  *  \version   	0.1
  *  \date      	2018-03-28
  *  \pre       	Set linker section presets to "Exceptions" in the Monitor Program. 
+ *	\bug		if a lower numbered key unregisters the callback of a higher numbered key, 
+ *				and both keys are pressed at the same time, the higher key will call the null
+ *				function pointer
  *				
  */
 
@@ -20,7 +23,7 @@ void reset_keys(void);
  * 				 
  *	\note 
  *	Each key has at most one callback; registering a new callback on the same
- *	key overwrites the previous callback silently.
+ *	key overwrites the previous callback.
  *
  *	\warning
  *	key number must be an integer in [0...3].

@@ -101,13 +101,22 @@ unregister_key_callback:
 	stw r18, 8(sp)
 	stw r17, 4(sp)
 	stw r16, 0(sp)
+
+	#set interrupt mask for the key
+	movia r16, KEYS
+	ldwio r17, 8(r16)
+	movi r18, 1
+	sll r18, r18, r4
+	xori r18, r18, 0xffff
+	and r17, r17, r18
+	stwio r17, 8(r16)
 	
 	#set the key callback to NULL
 	movia r16, key_callback_table
 	slli r4, r4, 2
 	add r17, r16, r4
 	stw r0, 0(r17)
-	
+
 	#r17 is the key counter
 	movi r17, 4
 	
@@ -169,7 +178,7 @@ keys_callback_wrapper:
 	#the callback function associated with that key
 	key_iterate_loop:
 		#if no more edges, done
-		beq r17, r0, key_press_callback_ret
+		beq r17, r0, keys_callback_wrapper_ret
 		
 		#r19 is the least significant edge bit
 		andi r19, r17, 1
@@ -200,7 +209,7 @@ keys_callback_wrapper:
 		
 		br key_iterate_loop
 		
-	key_press_callback_ret:
+	keys_callback_wrapper_ret:
 		ldw ra, 24(sp)
 		ldw r21, 20(sp)
 		ldw r20, 16(sp)
