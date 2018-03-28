@@ -1,22 +1,24 @@
-#ifndef INTERRUPT_H
-#define INTERRUPT_H
+#ifndef NIOS2_INTERRUPT_H
+#define NIOS2_INTERRUPT_H
 /*! 
- *  \brief     	This is a C interface for NIOS II interrupts
- *  \details   	This interface employs a simple, priority-less interrupt service 
- *				routine (ISR). If multiple interrupt requests are active at the   
- *				beginning of a handling cycle, each request is service starting from
- *				the lowest IRQ number.  				
+ *  \brief     	This is a NIOS II interrupt handler interface
+ *  \details   	This interface employs a simple, priority-less interrupt handler.
+ *				If multiple interrupt requests are active at the beginning of a handling   
+ *				cycle, each request is service starting from the lowest IRQ number.
  *  \author    	Frank Chen
  *  \version   	0.1
  *  \date      	2018-03-22
  *  \pre       	Set linker section presets to "Exceptions" in the Monitor Program.
- *  \bug       	The ISR does not save all states.
  */
 
 /*! \brief 	Registers a callback function for an IRQ line.
  * 				
- *	Each IRQ line has exactly one callback; registering a new callback overwrites
- *	the existing one. 
+ *	Registering a callback for an IRQ line also enables interrupt request listening
+ *	on that IRQ line.
+ *
+ * 	\note
+ *	Each IRQ line has at most one callback; registering a new callback overwites
+ * 	the existing one.
  *
  *	\warning
  *	IRQ line must be an integer in [0...32].
@@ -32,8 +34,8 @@ void unregister_interrupt_callback(int IRQ);
 
 /*! \brief 	Enables master interrupt.
  * 	
- *	Enables the interrupt service routine. Callbacks for each IRQ line will
- *	not be invoked unless the interrupt service routine is enabled. 
+ *	Enables the interrupt handler. Callbacks for each IRQ line will not be invoked
+ *	unless the interrupt handler is enabled.
  * 
  *	\warning
  *	Enabling master interrupt inside an interrupt callback has undefined behavior.		
@@ -43,8 +45,8 @@ void enable_master_interrupt(void);
 /*! \brief 	Disables master interrupt.
  * 	
  *	Disables the interrupt service routine. Devices may still emit interrupt requests, 
- * 	but they won't be serviced. 
+ * 	but they won't be serviced. Does not affect registered callbacks.
  */
 void disable_master_interrupt(void);
 
-#endif /*INTERRUPT_H*/
+#endif /*NIOS2_INTERRUPT_H*/
