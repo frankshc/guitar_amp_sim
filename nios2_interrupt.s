@@ -1,24 +1,45 @@
+#notes to self: 
+#
+#should considering deprecating function de_Bruijn_index_lookup 
+#because it is sometimes faster to simply shift ctl3 (ipending) right 
+#
+#the handler will not invoke a callback if it is null
+#usually, a callback for an enabled IRQ line should not be null 
+#it is possible, however, that a lower-IRQ interrupt handled in the
+#same cycle changes its interrupt states
+#not calling the null pointer solved part of the issue
+#however some devices may require an ACK to reset some states
+#the users must take note to somehow initialize these states
+
 .data
 .align 2
 interrupt_callback_lookup_table:
-	#by default, all callback function pointers are NULL
 	.skip 128, 0
 
 de_Bruijn_lookup_table:
 	.word 0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8, 31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
 	
 .text
-.global enable_master_interrupt
-.global disable_master_interrupt
 .global register_interrupt_callback
 .global unregister_interrupt_callback
+.global enable_master_interrupt
+.global disable_master_interrupt
+.global is_master_interrupt_enabled
+.global toggle_master_interrupt
 
 register_interrupt_callback:	
 	#r4 - IRQ line
 	#r5 - callback function pointer
-	addi sp, sp, -8
+	addi sp, sp, -16
+	stw ra, 12(sp)
+	stw r18, 8(sp)
 	stw r17, 4(sp)
 	stw r16, 0(sp)
+	
+	#atomic begin 
+	call is_master_interrupt_enabled
+	mov r18, r2
+	call disable_master_interrupt
 	
 	#enable the r4-th IRQ line
 	rdctl r16, ctl3
@@ -34,17 +55,30 @@ register_interrupt_callback:
 	add r16, r16, r4
 	stw r5, 0(r16)
 	
+	#atomic section end
+	mov r4, r18
+	call toggle_master_interrupt
+
+	ldw ra, 12(sp)
+	ldw r18, 8(sp)
 	ldw r17, 4(sp)
 	ldw r16, 0(sp)
-	addi sp, sp, 8
+	addi sp, sp, 16
 	ret
 	
 unregister_interrupt_callback:
 	#r4 - IRQ line
-	addi sp, sp, -12
+	addi sp, sp, -20
+	stw ra, 16(sp)
+	stw r19, 12(sp)
 	stw r18, 8(sp)
 	stw r17, 4(sp)
 	stw r16, 0(sp)
+	
+	#atomic begin 
+	call is_master_interrupt_enabled
+	mov r19, r2
+	call disable_master_interrupt
 	
 	#disable the r4-th IRQ line
 	rdctl r16, ctl3
@@ -61,10 +95,16 @@ unregister_interrupt_callback:
 	add r16, r16, r4
 	stw r0, 0(r16)
 	
+	#atomic section end
+	mov r4, r19
+	call toggle_master_interrupt
+	
+	ldw ra, 16(sp)
+	ldw r19, 12(sp)
 	ldw r18, 8(sp)
 	ldw r17, 4(sp)
 	ldw r16, 0(sp)
-	addi sp, sp, 12
+	addi sp, sp, 20
 	ret
 	
 enable_master_interrupt:
@@ -100,6 +140,15 @@ de_Bruijn_index_lookup:
 	
 	ldw r16, 0(sp)
 	addi sp, sp, 4
+	ret
+	
+is_master_interrupt_enabled:
+	rdctl r2, ctl0
+	ret
+	
+toggle_master_interrupt:
+	cmpne r4, r4, r0
+	wrctl ctl0, r4
 	ret
 	
 .section .exceptions, "ax"
@@ -144,25 +193,35 @@ interrupt_handler:
 		stwio r30, 120(sp)
 		stwio r31, 124(sp)
 		addi fp, sp, 128
-
-	rdctl r16, ctl4	#each bit of r16 corresponds to each IRQ line				
+	
+	#each bit of r16 corresponds to each IRQ line
+	rdctl r16, ctl4			
 	
 	IRQ_iterate:
 		#de Bruijn index lookup assumes that the input is non-zero
 		#Because the interrupt handler was invoked, we can safely assume ctl4 to be non-zero
 		sub r17, r0, r16	
-		and r18, r16, r17	#r18 contains the least significant bit of ctl4
+		
+		#r18 contains the least significant bit of ctl4
+		and r18, r16, r17
 		mov r4, r18
 		call de_Bruijn_index_lookup
 	
+		#invoke the appropriate callback
 		movia r17, interrupt_callback_lookup_table
 		slli r2, r2, 2
 		add r17, r17, r2
 		ldw r17, 0(r17)
+		beq r17, r0, interrupt_callback_null
 		callr r17
+
+		interrupt_callback_null:
+		#do nothing
 		
-		xor r16, r18, r16						#clears the least significant bit of ctl4
-		beq r16, r0, interrupt_handler_ret		#if r16 = 0, we have serviced all interrupt requests
+		#clears the least significant bit of ctl4
+		#if r16 = 0, we have serviced all interrupt requests
+		xor r16, r18, r16						
+		beq r16, r0, interrupt_handler_ret		
 		br IRQ_iterate
 	
 	interrupt_handler_ret:
