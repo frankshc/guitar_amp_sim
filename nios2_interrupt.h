@@ -22,6 +22,7 @@
  *
  *	\warning
  *	IRQ line must be an integer in [0...32].
+ *
  */
 void register_interrupt_callback(int IRQ, void (*callback)(void));
 
@@ -29,6 +30,9 @@ void register_interrupt_callback(int IRQ, void (*callback)(void));
  * 	
  *	\warning
  *	IRQ line must be an integer in [0...32]. 
+ *	
+ *	\bug
+ * 	It is unsafe to register/unregister interrupts from within an interrupt.
  */
 void unregister_interrupt_callback(int IRQ);
 
@@ -36,7 +40,7 @@ void unregister_interrupt_callback(int IRQ);
  * 	
  *	Enables the interrupt handler. Callbacks for each IRQ line will not be invoked
  *	unless the interrupt handler is enabled.
- * 
+ *
  *	\warning
  *	Enabling master interrupt inside an interrupt callback has undefined behavior.		
  */
@@ -49,4 +53,15 @@ void enable_master_interrupt(void);
  */
 void disable_master_interrupt(void);
 
+/*! \brief 	Returns the current master interrupt state.
+ *
+ *	Use this function with toggle_master_interrupt to implement atomic sections.
+ */
+int is_master_interrupt_enabled(void);
+
+/*! \brief  Toggles the master interrupt enable switch.
+ * 	
+ *	Use this function with is_master_interrupt_enabled to implement atomic sections.
+ */
+void toggle_master_interrupt(int toggle);
 #endif /*NIOS2_INTERRUPT_H*/
