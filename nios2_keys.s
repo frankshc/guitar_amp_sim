@@ -1,3 +1,8 @@
+#notes to self: 
+#
+#should refactor and implement function are_key_callbacks_null to check 
+#if all callbacks are null (this deprecates the keys_interrupt_is_enabled flag)
+
 .equ KEYS, 0xff200050
 .equ KEYS_IRQ, 1
 
@@ -5,6 +10,7 @@
 .align 2
 key_callback_table:
 	.skip 16, 0
+	
 keys_interrupt_is_enabled:
 	.word 0
 	
@@ -14,11 +20,17 @@ keys_interrupt_is_enabled:
 .global unregister_key_callback
 
 reset_keys:
-	addi sp, sp, -12
-	stw r17, 8(sp)
-	stw r16, 4(sp)
-	stw ra, 0(sp)
-
+	addi sp, sp, -16
+	stw ra, 12(sp)
+	stw r18, 8(sp)
+	stw r17, 4(sp)
+	stw r16, 0(sp)
+	
+	#atomic section begin
+	call is_master_interrupt_enabled
+	mov r18, r2
+	call disable_master_interrupt
+	
 	#disable keys interrupt
 	movia r16, KEYS
 	stwio r0, 8(r16)
@@ -45,21 +57,37 @@ reset_keys:
 	movia r16, keys_interrupt_is_enabled
 	stw r0, 0(r16)
 	
-	ldw r17, 8(sp)
-	ldw r16, 4(sp)
-	ldw ra, 0(sp)
-	addi sp, sp, 12
+	#atomic section end
+	mov r4, r18
+	call toggle_master_interrupt
+	
+	ldw ra, 12(sp)
+	ldw r18, 8(sp)
+	ldw r17, 4(sp)
+	ldw r16, 0(sp)
+	addi sp, sp, 16
 	ret
 
 register_key_callback: 
-	addi sp, sp, -16
-	stw ra, 12(sp)
+	addi sp, sp, -20
+	stw ra, 16(sp)
+	stw r19, 12(sp)
 	stw r18, 8(sp)
 	stw r17, 4(sp)
 	stw r16, 0(sp)
 	
-	#set interrupt mask for the key
+	#atomic begin 
+	call is_master_interrupt_enabled
+	mov r19, r2
+	call disable_master_interrupt
+
+	#must clear the edge capture register bit
 	movia r16, KEYS
+	movi r17, 1
+	sll r17, r17, r4
+	stwio r17, 12(r16)
+	
+	#set interrupt mask for the key
 	ldwio r17, 8(r16)
 	movi r18, 1
 	sll r18, r18, r4
@@ -76,34 +104,50 @@ register_key_callback:
 	#if the flag is 0, keys_callback_wrapper is not registered with the interrupt handler
 	movia r16, keys_interrupt_is_enabled
 	ldw r17, 0(r16)
-	beq r0, r17, enable_keys_interrupt
+	bne r17, r0, register_key_callback_ret
 	
-	enable_keys_interrupt:
-		#register keys_callback_wrapper with the interrupt handler
-		movia r4, KEYS_IRQ 
-		movia r5, keys_callback_wrapper
-		call register_interrupt_callback
-		
-		#set the keys_interrupt_is_enabled flag to 1
-		movi r17, 1
-		stw r17, 0(r16)
-		
-	ldw ra, 12(sp)	
-	ldw r18, 8(sp) 
-	ldw r17, 4(sp)
-	ldw r16, 0(sp)
-	addi sp, sp, 16
-	ret
+	#register keys_callback_wrapper with the interrupt handler
+	movia r4, KEYS_IRQ 
+	movia r5, keys_callback_wrapper
+	call register_interrupt_callback
+	
+	#set the keys_interrupt_is_enabled flag to 1
+	movi r17, 1
+	stw r17, 0(r16)
+	
+	#atomic section end
+	mov r4, r19
+	call toggle_master_interrupt
+
+	register_key_callback_ret:
+		ldw ra, 16(sp)	
+		ldw r19, 12(sp)
+		ldw r18, 8(sp) 
+		ldw r17, 4(sp)
+		ldw r16, 0(sp)
+		addi sp, sp, 20
+		ret
 
 unregister_key_callback:
-	addi sp, sp, -16
-	stw ra, 12(sp)
+	addi sp, sp, -20
+	stw ra, 16(sp)
+	stw r19, 12(sp)
 	stw r18, 8(sp)
 	stw r17, 4(sp)
 	stw r16, 0(sp)
+	
+	#atomic begin 
+	call is_master_interrupt_enabled
+	mov r19, r2
+	call disable_master_interrupt
+	
+	#must clear the edge capture register bit
+	movia r16, KEYS
+	movi r17, 1
+	sll r17, r17, r4
+	stwio r17, 12(r16)
 
 	#set interrupt mask for the key
-	movia r16, KEYS
 	ldwio r17, 8(r16)
 	movi r18, 1
 	sll r18, r18, r4
@@ -126,7 +170,8 @@ unregister_key_callback:
 		subi r17, r17, 1
 		bne r18, r0, unregister_key_callback_ret
 		bne r17, r0, check_key_callback_table_empty_loop
-		
+	
+	#all callback function pointers are NULL
 	#unregister keys_callback_wrapper with the interrupt handler
 	movia r4, KEYS_IRQ
 	call unregister_interrupt_callback
@@ -134,13 +179,18 @@ unregister_key_callback:
 	#set the keys_interrupt_is_enabled flag to 0
 	movia r16, keys_interrupt_is_enabled
 	stw r0, 0(r16)
-	
+
 	unregister_key_callback_ret:
-		ldw ra, 12(sp)	
+		#atomic section end
+		mov r4, r19
+		call toggle_master_interrupt
+		
+		ldw ra, 16(sp)	
+		ldw r19, 12(sp)
 		ldw r18, 8(sp) 
 		ldw r17, 4(sp)
 		ldw r16, 0(sp)
-		addi sp, sp, 16
+		addi sp, sp, 20
 		ret
 		
 #this subroutine wraps the callback function for each key
@@ -148,9 +198,8 @@ unregister_key_callback:
 	#1. all keys share the same IRQ line; need additional logic to determine which keys were pressed
 	#2. must acknowledge the interrupt
 keys_callback_wrapper:
-	addi sp, sp, -28
-	stw ra, 24(sp)
-	stw r21, 20(sp)
+	addi sp, sp, -24
+	stw ra, 20(sp)
 	stw r20, 16(sp)
 	stw r19, 12(sp)
 	stw r18, 8(sp)
@@ -159,8 +208,12 @@ keys_callback_wrapper:
 
 	#read the least significant byte of the Edge Capture Register
 	#r17 contains the Edge Capture Register
+	#note that the Edge Capture Register is not affected by the interrupt mask
+	#it is thus necessary to mask it manually
 	movia r16, KEYS
 	ldwio r17, 12(r16)
+	ldwio r18, 8(r16)
+	and r17, r17, r18
 	andi r17, r17, 0x0f
 	
 	#r18 is key_callback_table pointer
@@ -175,7 +228,7 @@ keys_callback_wrapper:
 	#it is possible that multiple keys are pressed at the same time
 	#in which case the Edge Capture Register will contain more than 1 set bit
 	#as such, it is neccesary to iterate through each set bit and invoke
-	#the callback function associated with that key
+	#the callback function associated with each pressed key
 	key_iterate_loop:
 		#if no more edges, done
 		beq r17, r0, keys_callback_wrapper_ret
@@ -198,24 +251,33 @@ keys_callback_wrapper:
 		#key was pressed
 		#invoke the callback function for this key
 		ldw r19, 0(r18)
+		#on rare occassions, if two keys are pressed together 
+		#and the lowered-numbered key unregisters the callback
+		#of the higher-numbered key, the function pointer will
+		#be null, in which case we do not call it
+		beq r19, r0, acknowledge_key_interrupt
 		callr r19
 		
 		#acknowledge interrupt for this key
+		#by setting the Edge Capture Register bit
+		acknowledge_key_interrupt:
 		movi r19, 1
 		sll r19, r19, r20
-		ldwio r21, 12(r16)
-		or r21, r21, r19
-		stwio r21, 12(r16)
+		stwio r19, 12(r16)
 		
 		br key_iterate_loop
 		
 	keys_callback_wrapper_ret:
-		ldw ra, 24(sp)
-		ldw r21, 20(sp)
+		ldw ra, 20(sp)
 		ldw r20, 16(sp)
 		ldw r19, 12(sp)
 		ldw r18, 8(sp)
 		ldw r17, 4(sp)
 		ldw r16, 0(sp)
-		addi sp, sp, 28
+		addi sp, sp, 24
 		ret
+
+are_key_callbacks_null:
+	#not implemented
+	ret
+	
