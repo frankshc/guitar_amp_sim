@@ -1,17 +1,15 @@
-#ifndef NIOS2_KEYS_H
-#define NIOS2_KEYS_H
+#ifndef ALT_DE1_SOC_NIOS2_KEYS_H
+#define ALT_DE1_SOC_NIOS2_KEYS_H
 /*! 
- *  \brief     	This is an interrupt-driven NIOS II keys/pushbutton interface
+ *  \brief     		This is an interrupt-driven NIOS II keys/pushbutton interface
  *  \details   	Keys are numbered 0 through 3. If multiple keys are pressed
- *				at the same time, the lowest-numbered key callback is invoked
- * 				first. 
+ *						at the same time, the lowest-numbered key callback is invoked
+ * 					first. 
  *  \author    	Frank Chen
- *  \version   	0.1
- *  \date      	2018-03-29
- *  \pre       	Set linker section presets to "Exceptions" in the Monitor Program.
+ *  \date      	2018-04-01
  */
  
-/*! \brief 	Resets the keys.
+/*! \brief 	Resets all key states.
  * 				
  *	Calling this function disables interrupts on all keys and clears
  *	the Edge Capture Register. 
@@ -34,5 +32,4 @@ void register_key_callback(int key, void (*callback)(void));
  *	key number must be an integer in [0...3].
  */
 void unregister_key_callback(int key);
-
-#endif /*NIOS2_KEYS_H*/
+#endif /*ALT_DE1_SOC_NIOS2_KEYS_H*/

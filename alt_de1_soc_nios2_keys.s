@@ -50,7 +50,7 @@ reset_keys:
 	clear_key_callback_table_loop:
 		stw r0, 0(r16)
 		addi r16, r16, 4
-		subi r17, r17, 1
+		subi r17, r17, 1 
 		bne r17, r0, clear_key_callback_table_loop
 	
 	#set the keys_interrupt_is_enabled flag to 0
@@ -192,6 +192,10 @@ unregister_key_callback:
 		ldw r16, 0(sp)
 		addi sp, sp, 20
 		ret
+
+are_key_callbacks_null:
+	#not implemented
+	ret
 		
 #this subroutine wraps the callback function for each key
 #wrapping is necessary because:
@@ -254,7 +258,7 @@ keys_callback_wrapper:
 		#on rare occassions, if two keys are pressed together 
 		#and the lowered-numbered key unregisters the callback
 		#of the higher-numbered key, the function pointer will
-		#be null, in which case we do not call it
+		#be null, in which case we should not call it
 		beq r19, r0, acknowledge_key_interrupt
 		callr r19
 		
@@ -277,7 +281,4 @@ keys_callback_wrapper:
 		addi sp, sp, 24
 		ret
 
-are_key_callbacks_null:
-	#not implemented
-	ret
 	
