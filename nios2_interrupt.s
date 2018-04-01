@@ -1,16 +1,3 @@
-#notes to self: 
-#
-#should considering deprecating function de_Bruijn_index_lookup 
-#because it is sometimes faster to simply shift ctl3 (ipending) right 
-#
-#the handler will not invoke a callback if it is null
-#usually, a callback for an enabled IRQ line should not be null 
-#it is possible, however, that a lower-IRQ interrupt handled in the
-#same cycle changes its interrupt states
-#not calling the null pointer solved part of the issue
-#however some devices may require an ACK to reset some states
-#the users must take note to somehow initialize these states
-
 .data
 .align 2
 interrupt_callback_lookup_table:
