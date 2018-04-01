@@ -1,14 +1,12 @@
 #ifndef NIOS2_INTERRUPT_H
 #define NIOS2_INTERRUPT_H
 /*! 
- *  \brief     	This is a NIOS II interrupt handler interface
- *  \details   	This interface employs a simple, priority-less interrupt handler.
- *				If multiple interrupt requests are active at the beginning of a handling   
- *				cycle, each request is service starting from the lowest IRQ number.
+ *  \brief     		This is a NIOS II interrupt handler interface
+ *  \details   	Each IRQ line has equal priority. Requests are serviced in a 
+						round-robin format, starting from the lowest-numbered IRQ
+						request. 
  *  \author    	Frank Chen
- *  \version   	0.1
- *  \date      	2018-03-22
- *  \pre       	Set linker section presets to "Exceptions" in the Monitor Program.
+ *  \date      	2018-04-01
  */
 
 /*! \brief 	Registers a callback function for an IRQ line.
@@ -16,13 +14,12 @@
  *	Registering a callback for an IRQ line also enables interrupt request listening
  *	on that IRQ line.
  *
- * 	\note
+ *	\note
  *	Each IRQ line has at most one callback; registering a new callback overwites
- * 	the existing one.
+ *	the existing one.
  *
  *	\warning
  *	IRQ line must be an integer in [0...32].
- *
  */
 void register_interrupt_callback(int IRQ, void (*callback)(void));
 
@@ -30,9 +27,6 @@ void register_interrupt_callback(int IRQ, void (*callback)(void));
  * 	
  *	\warning
  *	IRQ line must be an integer in [0...32]. 
- *	
- *	\bug
- * 	It is unsafe to register/unregister interrupts from within an interrupt.
  */
 void unregister_interrupt_callback(int IRQ);
 
@@ -49,7 +43,7 @@ void enable_master_interrupt(void);
 /*! \brief 	Disables master interrupt.
  * 	
  *	Disables the interrupt service routine. Devices may still emit interrupt requests, 
- * 	but they won't be serviced. Does not affect registered callbacks.
+ *	but they won't be serviced. Does not affect already registered callbacks.
  */
 void disable_master_interrupt(void);
 
